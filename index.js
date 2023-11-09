@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -30,14 +30,106 @@ async function run() {
     const libraryCollection = client.db("libraryDB").collection("team");
     const reviewCollection = client.db("libraryDB").collection("review");
     const categoryCollection = client.db("libraryDB").collection("category");
+    const booksCollection = client.db("libraryDB").collection("Books");
+    const borrowCollection = client.db("libraryDB").collection("borrow");
 
 
-    app.post('/category', async (req, res) => {
-        const category = req.body
-        // console.log(product)
-        const result = await categoryCollection.insertOne(category);
+
+    app.post('/books', async (req, res) => {
+        const books = req.body
+        const result = await booksCollection.insertOne(books);
         res.send(result)
     })
+
+// Post borrowes books information
+    app.post('/borrow', async (req, res) => {
+        const borrow = req.body
+        const result = await borrowCollection.insertOne(borrow);
+        res.send(result)
+    })
+
+
+    // get borrowed books information
+    app.get('/borrow', async(req,res) => {
+        const cursor = borrowCollection.find()
+        const result = await cursor.toArray();
+        res.send(result);
+    })
+
+// get books
+    app.get('/books', async(req,res) => {
+        const cursor = booksCollection.find()
+        const result = await cursor.toArray();
+        res.send(result);
+    })
+    // get books id
+    app.get('/books/:id', async(req,res) => {
+        const id= req.params.id
+        const query = { _id: new ObjectId(id) }
+        const result = await booksCollection.findOne(query);
+
+        res.send(result);
+    })
+
+    // delete borrowed book id
+    app.delete('/borrow/:id', async(req,res) => {
+        const id= req.params.id
+        const query = { _id: new ObjectId(id) }
+        const result = await borrowCollection.deleteOne(query);
+
+        res.send(result);
+    })
+
+// update books data id
+    app.patch('/books/:id', async(req,res) => {
+        const id= req.params.id
+        const book = req.body
+        const filter = { _id: new ObjectId(id) }
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: {
+            quantity: book.quantity
+          },
+        };
+        const result = await booksCollection.updateOne(filter, updateDoc,options);
+        res.send(result);
+    })
+
+    app.patch('/books/:id', async (req, res) => {
+        try {
+            const id = req.params.id;
+            const { book, photo, author, category, rating } = req.body;
+            
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    book,
+                    photo,
+                    author,
+                    category,
+                    rating,
+                },
+            };
+    
+            const result = await booksCollection.updateOne(filter, updateDoc);
+    
+            if (result.matchedCount === 0) {
+                res.status(404).json({ error: 'Book not found' });
+            } else {
+                res.json({ message: 'Book updated successfully' });
+            }
+        } catch (error) {
+            console.error('Error updating book:', error);
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    });
+
+    // app.post('/category', async (req, res) => {
+    //     const category = req.body
+    //     // console.log(product)
+    //     const result = await categoryCollection.insertOne(category);
+    //     res.send(result)
+    // })
 
     app.get('/category', async(req,res) => {
         const cursor = categoryCollection.find()
@@ -45,12 +137,12 @@ async function run() {
         res.send(result);
     })
 
-    app.post('/team', async (req, res) => {
-        const team = req.body
-        // console.log(product)
-        const result = await libraryCollection.insertOne(team);
-        res.send(result)
-    })
+    // app.post('/team', async (req, res) => {
+    //     const team = req.body
+    //     // console.log(product)
+    //     const result = await libraryCollection.insertOne(team);
+    //     res.send(result)
+    // })
 
     app.get('/team', async(req,res) => {
         const cursor = libraryCollection.find()
@@ -58,12 +150,12 @@ async function run() {
         res.send(result);
     })
 
-    app.post('/review', async (req, res) => {
-        const review = req.body
-        // console.log(product)
-        const result = await reviewCollection.insertOne(review);
-        res.send(result)
-    })
+    // app.post('/review', async (req, res) => {
+    //     const review = req.body
+    //     // console.log(product)
+    //     const result = await reviewCollection.insertOne(review);
+    //     res.send(result)
+    // })
 
     app.get('/review', async(req,res) => {
         const cursor = reviewCollection.find()
