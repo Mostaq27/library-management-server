@@ -1,14 +1,39 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const cookieparser = require('cookie-parser');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
 
 // middleware
-app.use(cors());
+app.use(cors({
+    origin: ['https://library-management-syste-d2072.firebaseapp.com','https://library-management-syste-d2072.web.app'],
+    credentials: true 
+}));
+
+
+
+const verifyToken = async (req, res, next) => {
+    const token = req.cookies?.token;
+    if (!token) {
+        return res.status(401).send({ message: 'unauthorized access' })
+    }
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ message: 'unauthorized access' })
+        }
+        req.user = decoded;
+        next();
+    })
+}
+
+
+
+
 app.use(express.json());
+app.use(cookieparser());
 
 
 
@@ -26,7 +51,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const libraryCollection = client.db("libraryDB").collection("team");
     const reviewCollection = client.db("libraryDB").collection("review");
@@ -37,9 +62,21 @@ async function run() {
 // auth related api
 app.post('/jwt', async(req,res)=>{
     const user = req.body;
-    console.log(user)
     const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'})
-    res.send(token)
+    res
+    .cookie('token', token, {
+        httpOnly: false,
+        secure:true,
+        sameSite: 'none'
+       
+    })
+    .send({success: true})
+})
+
+app.post('/logout', async (req, res) => {
+    const user = req.body;
+    console.log('logging out', user);
+    res.clearCookie('token', { maxAge: 0 }).send({ success: true })
 })
 
 
@@ -94,6 +131,7 @@ app.post('/jwt', async(req,res)=>{
         const id= req.params.id
         const book = req.body
         const filter = { _id: new ObjectId(id) }
+        console.log(id,book)
         const options = { upsert: true };
         const updateDoc = {
           $set: {
@@ -104,41 +142,35 @@ app.post('/jwt', async(req,res)=>{
         res.send(result);
     })
 
-    app.patch('/books/:id', async (req, res) => {
-        try {
+    app.put('/books/:id', async (req, res) => {
+       
             const id = req.params.id;
-            const { book, photo, author, category, rating } = req.body;
+            const updatebooks = req.body;
             
             const filter = { _id: new ObjectId(id) };
+            const options = { upsert: true };
             const updateDoc = {
                 $set: {
-                    book,
-                    photo,
-                    author,
-                    category,
-                    rating,
+                    book: updatebooks.book,
+                    photo: updatebooks.photo,
+                    author: updatebooks.author,
+                    category: updatebooks.category,
+                    rating: updatebooks.rating
                 },
             };
     
-            const result = await booksCollection.updateOne(filter, updateDoc);
+            const result = await booksCollection.updateOne(filter, updateDoc,options);
+            res.send(result)
     
-            if (result.matchedCount === 0) {
-                res.status(404).json({ error: 'Book not found' });
-            } else {
-                res.json({ message: 'Book updated successfully' });
-            }
-        } catch (error) {
-            console.error('Error updating book:', error);
-            res.status(500).json({ error: 'Internal Server Error' });
-        }
+           
     });
 
-    // app.post('/category', async (req, res) => {
-    //     const category = req.body
-    //     // console.log(product)
-    //     const result = await categoryCollection.insertOne(category);
-    //     res.send(result)
-    // })
+    app.post('/category', async (req, res) => {
+        const category = req.body
+        // console.log(product)
+        const result = await categoryCollection.insertOne(category);
+        res.send(result)
+    })
 
     app.get('/category', async(req,res) => {
         const cursor = categoryCollection.find()
@@ -146,12 +178,12 @@ app.post('/jwt', async(req,res)=>{
         res.send(result);
     })
 
-    // app.post('/team', async (req, res) => {
-    //     const team = req.body
-    //     // console.log(product)
-    //     const result = await libraryCollection.insertOne(team);
-    //     res.send(result)
-    // })
+    app.post('/team', async (req, res) => {
+        const team = req.body
+        // console.log(product)
+        const result = await libraryCollection.insertOne(team);
+        res.send(result)
+    })
 
     app.get('/team', async(req,res) => {
         const cursor = libraryCollection.find()
@@ -159,12 +191,12 @@ app.post('/jwt', async(req,res)=>{
         res.send(result);
     })
 
-    // app.post('/review', async (req, res) => {
-    //     const review = req.body
-    //     // console.log(product)
-    //     const result = await reviewCollection.insertOne(review);
-    //     res.send(result)
-    // })
+    app.post('/review', async (req, res) => {
+        const review = req.body
+        // console.log(product)
+        const result = await reviewCollection.insertOne(review);
+        res.send(result)
+    })
 
     app.get('/review', async(req,res) => {
         const cursor = reviewCollection.find()
@@ -175,8 +207,8 @@ app.post('/jwt', async(req,res)=>{
 
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
