@@ -4,4 +4,4 @@
 - express, cors
 - mongodb
 - jsonwebtoken, dotenv
-- stripe
+  
