@@ -1,7 +1,7 @@
-# b8a11-server-side-Mostaq27
+# Library Management System Server`Web Engineering Lab Course Code: CSE 3106`
 
 ## used technology 
-- express, cors
-- mongodb
-- jsonwebtoken, dotenv
+- `express, cors`
+- `mongodb`
+- `jsonwebtoken, dotenv`
   
